@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 struct Function {
@@ -37,11 +38,33 @@ fn skip_whitespace(s: &str) -> &str {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+struct Cons {
+    value: Value,
+    next: List,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+enum List {
+    Cons(Box<Cons>),
+    Nil,
+}
+
+impl fmt::Display for List {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            List::Cons(cons) => {
+                write!(f, "{} {}", cons.value, cons.next.to_string())
+            }
+            List::Nil => write!(f, ""),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 enum Value {
     Num(i32),
     Bool(bool),
-    Def,         // TODO:
-    Sym(String), // TODO:
+    List(List),
     Nil,
 }
 
@@ -50,6 +73,16 @@ impl Value {
         match self {
             Value::Num(i) => *i,
             _ => panic!("Parse Error. Value: {self:?}"),
+        }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Num(i) => write!(f, "{}", i),
+            Value::List(lst) => write!(f, "{}", lst.to_string()),
+            _ => write!(f, ""),
         }
     }
 }
@@ -74,7 +107,14 @@ impl_op!(mul, *);
 impl_op!(div, /);
 
 fn print(value: &Value) {
-    print!("{value:?}");
+    print!("{}", value.to_string());
+}
+
+fn cons(value: Value, list: List) -> List {
+    match value {
+        Value::Nil => List::Nil,
+        _ => List::Cons(Box::new(Cons { value, next: list })),
+    }
 }
 
 fn eval_block(vm: &mut Vm, block: &str) -> Value {
@@ -84,6 +124,38 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
     let rest = (&inner[op_len..]).trim();
 
     match operator {
+        "cons" => {
+            let (arg1, rest) = extract_next_chunk_with_rest(rest);
+            let (arg2, _) = extract_next_chunk_with_rest(rest);
+            let v1 = eval(vm, arg1);
+            if arg2.len() > 0 {
+                let v2 = eval(vm, arg2);
+                match v2 {
+                    Value::List(lst) => Value::List(cons(v1, lst)),
+                    _ => panic!("{v2:?} is not a list value"),
+                }
+            } else {
+                Value::List(cons(v1, List::Nil))
+            }
+        }
+        "car" => {
+            let (arg, _) = extract_next_chunk_with_rest(rest);
+            let lst = eval(vm, arg);
+            match lst {
+                Value::List(List::Cons(lst)) => lst.value,
+                Value::List(List::Nil) => panic!("{arg:?} is a empty list."),
+                _ => panic!("{arg:?} is not a list value"),
+            }
+        }
+        "cdr" => {
+            let (arg, _) = extract_next_chunk_with_rest(rest);
+            let lst = eval(vm, arg);
+            match lst {
+                Value::List(List::Cons(lst)) => Value::List(lst.next),
+                Value::List(List::Nil) => panic!("{arg:?} is a empty list."),
+                _ => panic!("{arg:?} is not a list value"),
+            }
+        }
         "-" => sub(vm, rest),
         "+" => add(vm, rest),
         "*" => mul(vm, rest),
@@ -286,10 +358,17 @@ fn parse(vm: &mut Vm) {
 
 fn main() {
     let input = "
-(def max (a b) (if (< a b) b a))
-(def sum (a b c) (+ a (+ b c)))
-(print (max 1 10))
-(print (sum 1 2 3))
+(def product (x acc)
+    (if (< x 1)
+        acc
+        (product (- x 1) (* acc x))))
+(print (product 10 1))
+";
+    let input = "
+(let lst (cons 40 (cons 30 (cons 20 (cons 10 (cons 1))))))
+(let fst (car lst))
+(let rest (cdr lst))
+(print (car (cdr (cdr lst))))
 ";
     let mut vm = Vm::new(input);
     parse(&mut vm);
@@ -305,13 +384,14 @@ mod tests {
         assert_eq!(true, true);
     }
 
-    fn test_parse02() {
-        let expr = "(+ 10 (* 10 10))";
-        assert_eq!(true, true);
-    }
-
-    fn test_parse03() {
-        let expr = "(+ 10 (if (= 2 2) 20 10))";
-        assert_eq!(true, true);
+    #[test]
+    fn test_recursive_function() {
+        let input = "
+(def product (x acc)
+    (if (< x 1)
+        acc
+        (product (- x 1) (* acc x))))
+(product 10 1)
+";
     }
 }
