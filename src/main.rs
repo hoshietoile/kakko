@@ -14,14 +14,14 @@ enum Vars {
 
 struct Vm<'a> {
     input: &'a str,
-    vars: HashMap<String, Vars>,
+    vars: Vec<HashMap<String, Vars>>,
 }
 
 impl<'a> Vm<'a> {
     fn new(input: &'a str) -> Self {
         Self {
             input,
-            vars: HashMap::new(),
+            vars: vec![HashMap::new()],
         }
     }
 }
@@ -35,8 +35,6 @@ fn skip_whitespace(s: &str) -> &str {
     }
     input
 }
-
-fn parse_args() {}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 enum Value {
@@ -123,7 +121,11 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
             let (arg1, rest) = extract_next_chunk_with_rest(rest);
             let (arg2, _) = extract_next_chunk_with_rest(rest);
             let var = eval(vm, arg2);
-            vm.vars.insert(arg1.into(), Vars::Var(var));
+            vm.vars
+                .iter_mut()
+                .rev()
+                .nth(0)
+                .map(|mp| mp.insert(arg1.into(), Vars::Var(var)));
             Value::Nil
         }
         "def" => {
@@ -134,12 +136,17 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
                 args_block: arg2.into(),
                 body_block: arg3.into(),
             };
-            vm.vars.insert(arg1.into(), Vars::Function(function));
+            vm.vars
+                .iter_mut()
+                .rev()
+                .nth(0)
+                .map(|mp| mp.insert(arg1.into(), Vars::Function(function)));
+            Value::Nil
             Value::Nil
         }
         _ => {
             let symbol = operator.to_string();
-            let value = vm.vars.get(&symbol).cloned();
+            let value = vm.vars[0].get(&symbol).cloned();
             if let Some(var) = value {
                 match var {
                     Vars::Var(v) => panic!("{v:?} can't be called"),
@@ -147,15 +154,20 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
                         args_block,
                         body_block,
                     }) => {
+                        // 関数の評価時に新スコープ分の変数用HashMapを追加
+                        let mut scoped_vars_container = HashMap::new();
                         // 関数の各変数に値をバインドして変数として宣言
                         let variables = extract_block_inner(&args_block).split_whitespace();
                         for variable in variables {
                             // TODO: restの宣言方法
                             let (arg, _) = extract_next_chunk_with_rest(rest);
                             let var = Vars::Var(eval(vm, arg));
-                            vm.vars.insert(variable.into(), var);
+                            scoped_vars_container.insert(variable.into(), var);
                         }
-                        return eval_block(vm, &body_block);
+                        vm.vars.push(scoped_vars_container);
+                        let result = eval_block(vm, &body_block);
+                        vm.vars.pop();
+                        return result;
                     }
                 }
             }
@@ -178,14 +190,15 @@ fn eval(vm: &mut Vm, value: &str) -> Value {
         Value::Num(i)
     } else {
         let symbol = value;
-        if let Some(var) = vm.vars.get(symbol) {
-            match var {
-                Vars::Var(v) => v.clone(),
-                _ => panic!("Functino can't be called"),
+        for vars in vm.vars.iter().rev() {
+            if let Some(var) = vars.get(symbol) {
+                match var {
+                    Vars::Var(v) => return v.clone(),
+                    _ => panic!("Functino can't be called"),
+                }
             }
-        } else {
-            panic!("Var: {value:?} isn't yet declared");
         }
+        panic!("Var: {value:?} isn't yet declared");
     }
 }
 
@@ -263,6 +276,7 @@ fn parse(vm: &mut Vm) {
 
 fn main() {
     let input = "
+(let v 1)
 (let x (+ 1501 1500))
 (def double (v) (* v v))
 (def isEven (v) (= 0 (- v (* 2 (/ v 2)))))
