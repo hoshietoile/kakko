@@ -163,15 +163,16 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
                         args_block,
                         body_block,
                     }) => {
+                        let mut _rest = rest;
                         // 関数の評価時に新スコープ分の変数用HashMapを追加
                         let mut scoped_vars_container = HashMap::new();
                         // 関数の各変数に値をバインドして変数として宣言
                         let variables = extract_block_inner(&args_block).split_whitespace();
                         for variable in variables {
-                            // TODO: restの宣言方法
-                            let (arg, _) = extract_next_chunk_with_rest(rest);
+                            let (arg, rest) = extract_next_chunk_with_rest(_rest);
                             let var = Vars::Var(eval(vm, arg));
                             scoped_vars_container.insert(variable.into(), var);
+                            _rest = rest;
                         }
                         vm.vars.push(scoped_vars_container);
                         let result = eval_block(vm, &body_block);
@@ -278,18 +279,18 @@ fn parse(vm: &mut Vm) {
     let ln = block.len();
     vm.input = &vm.input.get((ln + 1)..).unwrap_or("").trim();
     // println!("{block:?}");
-    // println!("result: {result:?}");
+    // println!("result: {_result:?}");
     // println!("{:?}", vm.vars);
     parse(vm);
 }
 
 fn main() {
     let input = "
-(let v 1)
-(let x (+ 1501 1500))
-(def double (v) (* v v))
-(def isEven (v) (= 0 (- v (* 2 (/ v 2)))))
-(print (if (isEven x) (if (= 10 1) (+ 0 1) 2) (if (= 10 1) (- 4 1) (double 4))))";
+(def max (a b) (if (< a b) b a))
+(def sum (a b c) (+ a (+ b c)))
+(print (max 1 10))
+(print (sum 1 2 3))
+";
     let mut vm = Vm::new(input);
     parse(&mut vm);
 }
