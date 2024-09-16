@@ -73,6 +73,10 @@ impl_op!(sub, -);
 impl_op!(mul, *);
 impl_op!(div, /);
 
+fn print(value: &Value) {
+    print!("{value:?}");
+}
+
 fn eval_block(vm: &mut Vm, block: &str) -> Value {
     let inner = extract_block_inner(block);
     let operator = extract_value(inner);
@@ -142,7 +146,12 @@ fn eval_block(vm: &mut Vm, block: &str) -> Value {
                 .nth(0)
                 .map(|mp| mp.insert(arg1.into(), Vars::Function(function)));
             Value::Nil
-            Value::Nil
+        }
+        "print" => {
+            let (arg, _rest) = extract_next_chunk_with_rest(rest);
+            let value = eval(vm, arg);
+            print(&value);
+            value
         }
         _ => {
             let symbol = operator.to_string();
@@ -257,20 +266,20 @@ fn extract_block_inner<'a>(block: &'a str) -> &'a str {
 }
 
 fn parse(vm: &mut Vm) {
-    println!("####");
-    println!("{:?}", vm.input);
+    // println!("####");
+    // println!("{:?}", vm.input);
     let input = skip_whitespace(vm.input);
     // 基底部
     if input.len() <= 0 {
         return;
     }
     let block = extract_block(input);
-    let result = eval_block(vm, block);
+    let _result = eval_block(vm, block);
     let ln = block.len();
     vm.input = &vm.input.get((ln + 1)..).unwrap_or("").trim();
-    println!("{block:?}");
-    println!("result: {result:?}");
-    println!("{:?}", vm.vars);
+    // println!("{block:?}");
+    // println!("result: {result:?}");
+    // println!("{:?}", vm.vars);
     parse(vm);
 }
 
@@ -280,7 +289,7 @@ fn main() {
 (let x (+ 1501 1500))
 (def double (v) (* v v))
 (def isEven (v) (= 0 (- v (* 2 (/ v 2)))))
-(if (isEven x) (if (= 10 1) (+ 0 1) 2) (if (= 10 1) (- 4 1) (double 4)))";
+(print (if (isEven x) (if (= 10 1) (+ 0 1) 2) (if (= 10 1) (- 4 1) (double 4))))";
     let mut vm = Vm::new(input);
     parse(&mut vm);
 }
