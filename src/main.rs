@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::io::prelude::*;
 
 #[derive(Debug, Clone)]
 struct Function {
@@ -89,7 +90,7 @@ impl_op!(mul, *);
 impl_op!(div, /);
 
 fn print(value: &Value) {
-    print!("{}", value.to_string());
+    println!("{}", value.to_string());
 }
 
 fn cons(value: Value, list: List) -> List {
@@ -264,7 +265,7 @@ fn assign(vm: &mut Vm, key: &str, var: Vars) {
 
 fn skip_whitespace(s: &str) -> &str {
     let mut input = s;
-    while let Some(_ch @ (' ' | '\n')) = input.chars().next() {
+    while let Some(_ch @ (' ' | '\n' | '\r')) = input.chars().next() {
         let mut chars = input.chars();
         chars.next();
         input = chars.as_str();
@@ -290,7 +291,8 @@ fn extract_next_chunk_with_rest(chunk: &str) -> (&str, &str) {
     (fst, snd)
 }
 
-fn eval(vm: &mut Vm, value: &str) -> Value {
+fn eval(vm: &mut Vm, _value: &str) -> Value {
+    let value = _value.trim();
     if is_block(value) {
         eval_block(vm, value)
     } else if let Some(i) = value.parse::<i32>().ok() {
@@ -373,57 +375,12 @@ fn parse(vm: &mut Vm) {
 }
 
 fn main() {
-    let input = "
-(def product (x acc)
-    (if (< x 1)
-        acc
-        (product (- x 1) (* acc x))))
-
-(print (product 10 1))
-
-(def _initialize (x acc)
-    (if (== x 0)
-        acc
-        (_initialize (- x 1) (cons 0 acc))))
-
-(def initialize (x)
-    (_initialize x (cons)))
-
-(def insert (list index value)
-    (if (== 0 index)
-        (cons value list)
-        (cons (car list) (insert (cdr list) (- index 1) value))))
-
-(let list (initialize 100))
-
-(def n_times (n cb dummy)
-    (if (== n 0)
-        (cb)
-        (n_times (- n 1) cb (cb))))
-
-(def modulo (a b)
-    (- a (* b (/ a b))))
-
-(def fizzbuzz (n)
-    (if (== n 0)
-        n
-        (if (== (modulo n 3) 0)
-            (if (== (modulo n 5) 0)
-                (print (# (FizzBuzz\n)))
-                (print (# (Fizz\n))))
-            (if (== (modulo n 5) 0)
-                (print (# (Buzz\n)))
-                (print n)))))
-
-(def n_times_fizzbuzz (n dummy)
-    (if (== n 0)
-        (print (# (\nend\n)))
-        (n_times_fizzbuzz (- n 1) (fizzbuzz n))))
-
-(print (# (hoshi yuta desu\n)))
-(fizzbuzz 15)
-(n_times_fizzbuzz 20 0)
-";
-    let mut vm = Vm::new(input);
+    let args: Vec<String> = std::env::args().collect();
+    let filename = args.get(1).expect("No filename specified.");
+    let mut f = std::fs::File::open(filename).expect("File not found.");
+    let mut input = String::new();
+    f.read_to_string(&mut input)
+        .expect("Something went wrong while reading the file.");
+    let mut vm = Vm::new(&input);
     parse(&mut vm);
 }
