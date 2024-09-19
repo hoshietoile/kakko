@@ -1,0 +1,20 @@
+(def modulo (a b)
+    (- a (* b (/ a b))))
+
+(def fizzbuzz (n)
+    (if (== n 0)
+        n
+        (if (== (modulo n 3) 0)
+            (if (== (modulo n 5) 0)
+                (print (# (FizzBuzz)))
+                (print (# (Fizz))))
+            (if (== (modulo n 5) 0)
+                (print (# (Buzz)))
+                (print n)))))
+
+(def n_times_fizzbuzz (n dummy)
+    (if (== n 0)
+        (fizzbuzz n)
+        (n_times_fizzbuzz (- n 1) (fizzbuzz n))))
+
+(n_times_fizzbuzz 20 0)

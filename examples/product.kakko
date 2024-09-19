@@ -1,0 +1,6 @@
+(def product (x acc)
+    (if (< x 1)
+        acc
+        (product (- x 1) (* acc x))))
+
+(print (product 10 1))

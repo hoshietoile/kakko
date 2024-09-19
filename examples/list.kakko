@@ -1,0 +1,33 @@
+(def _initialize (x acc)
+    (if (== x 0)
+        acc
+        (_initialize (- x 1) (cons 0 acc))))
+
+(def initialize (x)
+    (_initialize x (cons)))
+
+(def insert (list index value)
+    (if (== 0 index)
+        (cons value list)
+        (cons (car list) (insert (cdr list) (- index 1) value))))
+
+(let list (initialize 100))
+
+(print list)
+(print (insert list 10 3))
+(print (insert (insert list 10 3) 20 4))
+(print (insert (insert (insert list 10 3) 20 4) 30 5))
+
+(print
+  (car
+    (cdr
+      (cons 20
+        (cons 10
+          (cons 5
+            (cons)
+          )
+        )
+      )
+    )
+  )
+)
